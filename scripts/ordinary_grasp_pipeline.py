@@ -16,13 +16,14 @@
 
 import os
 os.environ.setdefault("QT_QPA_FONTDIR", "/usr/share/fonts/truetype")
+os.environ["QT_QPA_PLATFORM"] = "xcb"
+os.environ["MPLBACKEND"] = "Agg"
 
 import sys
 from pathlib import Path
 
 import cv2
 import yaml
-from ultralytics import YOLO
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -91,10 +92,16 @@ def main():
     iou_thres = float(det_cfg.get("iou_threshold", 0.45))
     depth_quantile = float(grasp_cfg.get("depth_quantile", 0.75))
 
+    window_name = f"Ordinary Grasp Test ({cam_type})"
+    cv2.startWindowThread()
+    cv2.namedWindow(window_name, cv2.WINDOW_AUTOSIZE)
+
+    # Import YOLO after window creation to avoid Qt deadlock on Jetson
     print("=== 初始化 YOLO 模型 ===")
     model_path = resolve_yolo_model_path(PROJECT_ROOT, model_name)
     print(f"加载模型: {model_path}")
     ensure_jetson_tensorrt_importable()
+    from ultralytics import YOLO
     model = YOLO(str(model_path))
     if use_world and is_open_vocab_model(model_name):
         model.set_classes(custom_classes)
@@ -110,8 +117,6 @@ def main():
     cx, cy = float(K[0, 2]), float(K[1, 2])
     print(f"[相机就绪] fx={fx:.2f}, fy={fy:.2f}, cx={cx:.2f}, cy={cy:.2f}")
 
-    window_name = f"Ordinary Grasp Test ({cam_type})"
-    cv2.namedWindow(window_name, cv2.WINDOW_AUTOSIZE)
     cv2.setMouseCallback(window_name, mouse_callback)
     print("\n[操作提示] 鼠标左键点测深度, 按 G 打印最佳夹取, 按 Q 退出")
 

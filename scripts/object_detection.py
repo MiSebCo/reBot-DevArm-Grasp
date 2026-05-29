@@ -10,13 +10,14 @@
 
 import os
 os.environ.setdefault("QT_QPA_FONTDIR", "/usr/share/fonts/truetype")
+os.environ["QT_QPA_PLATFORM"] = "xcb"
+os.environ["MPLBACKEND"] = "Agg"
 
 import sys
 import cv2
 import yaml
 import numpy as np
 from pathlib import Path
-from ultralytics import YOLO
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -82,9 +83,15 @@ def main():
 
     model_path = resolve_yolo_model_path(project_root, model_name)
 
+    window_name = f"Unified 3D Vision ({cam_type})"
+    cv2.startWindowThread()
+    cv2.namedWindow(window_name, cv2.WINDOW_AUTOSIZE)
+
+    # Import YOLO after window creation to avoid Qt deadlock on Jetson
     print(f"=== 初始化 YOLO 模型 ===")
     print(f"尝试加载模型: {model_path}")
     ensure_jetson_tensorrt_importable()
+    from ultralytics import YOLO
     model = YOLO(str(model_path))
 
     is_open_vocab = use_world and is_open_vocab_model(model_name)
@@ -119,8 +126,6 @@ def main():
     print(f"[相机就绪] {cam_type} (fx:{fx:.2f}, cx:{cx:.2f})")
 
     print("\n[操作提示] 按鼠标左键进行坐标点测，按 [Q] 退出程序")
-    window_name = f"Unified 3D Vision ({cam_type})"
-    cv2.namedWindow(window_name, cv2.WINDOW_AUTOSIZE)
     cv2.setMouseCallback(window_name, mouse_callback)
 
     try:
