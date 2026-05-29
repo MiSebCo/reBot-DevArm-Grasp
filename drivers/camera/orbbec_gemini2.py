@@ -31,6 +31,7 @@ class OrbbecGemini2(CameraDriver):
         self._calib_dir = Path(calib_dir) if calib_dir else None
 
         self._pipeline = None
+        self._align_filter = None
         self._K: Optional[np.ndarray] = None
         self._D: Optional[np.ndarray] = None
         self._aruco = None
@@ -43,8 +44,8 @@ class OrbbecGemini2(CameraDriver):
         try:
             from pyorbbecsdk import (
                 Pipeline, Config,
-                OBSensorType, OBFormat, OBAlignMode,
-                Context,
+                OBSensorType, OBStreamType, OBFormat,
+                AlignFilter, Context,
             )
         except ImportError as e:
             raise RuntimeError(f"未安装 pyorbbecsdk，请先编译安装: {e}") from e
@@ -95,8 +96,8 @@ class OrbbecGemini2(CameraDriver):
                 dp = dplist.get_default_video_stream_profile()
             cfg.enable_stream(dp)
 
-            cfg.set_align_mode(OBAlignMode.HW_MODE)
             self._pipeline.start(cfg)
+            self._align_filter = AlignFilter(align_to_stream=OBStreamType.COLOR_STREAM)
 
             # 从 SDK 读取内参
             intr = self._pipeline.get_camera_param().rgb_intrinsic
@@ -128,8 +129,12 @@ class OrbbecGemini2(CameraDriver):
             return None, None
         try:
             from pyorbbecsdk import OBFormat
-            frames = self._pipeline.wait_for_frames(500)
-            if frames is None:
+            frames = self._pipeline.wait_for_frames(1000)
+            if not frames:
+                return None, None
+            if self._align_filter is not None:
+                frames = self._align_filter.process(frames)
+            if not frames:
                 return None, None
 
             color_bgr = None
@@ -145,8 +150,8 @@ class OrbbecGemini2(CameraDriver):
                         color_bgr = cv2.cvtColor(raw.reshape(h, w, 3), cv2.COLOR_RGB2BGR)
                     else:
                         color_bgr = raw.reshape(h, w, 3)
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"[CAM] decode exception: {e}", flush=True)
 
             depth_mm = None
             df = frames.get_depth_frame()
@@ -155,7 +160,8 @@ class OrbbecGemini2(CameraDriver):
                 depth_mm = np.frombuffer(df.get_data(), dtype=np.uint16).reshape(dh, dw)
 
             return color_bgr, depth_mm
-        except Exception:
+        except Exception as e:
+            print(f"[CAM] get_frame exception: {e}", flush=True)
             return None, None
 
     # ── 内参 ─────────────────────────────────────────────────────────────────

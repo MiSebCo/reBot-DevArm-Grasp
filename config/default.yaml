@@ -9,7 +9,7 @@ camera:
 
 calibration:
   aruco:
-    marker_length_m: 0.1
+    marker_length_m: 0.095
     dict_id: 0
     target_marker_id: 0
   hand_eye_method: TSAI
@@ -20,7 +20,7 @@ detection:
 
 robot:
   repo_root: null
-  config_path: null
+  config_path: config/arm.yaml  # project-local arm config (pos_ki=0 prevents oscillation)
   urdf_path: null
   pose_convention: xyz_euler_rad
   ready_pose:
@@ -29,16 +29,20 @@ robot:
     z: 0.3
     roll: 0.0
     pitch: 0.7
-    duration: 3.0
+    duration: 5.0
 
 yolo:
-  model_name: "yolo11n-seg.engine"
-  device: "auto"
-  use_world: false
-  custom_classes: []
-
-graspnet:
-  checkpoint: "checkpoint-rs.tar"
+  model_name: "yoloe-26s-seg.pt"
+  device: "cuda:0"
+  use_world: true
+  custom_classes:
+    - "yellow banana"
+    - "water bottle"
+    - "light blue coffee cup"
+    - "cup"
+    - "green object"
+    - "red object"
+    - "tool"
 
 grasp_pipeline:
   infer_every_live: 3

@@ -125,7 +125,13 @@ class RebotArm:
         from reBotArm_control_py.kinematics.inverse_kinematics import solve_ik
         from reBotArm_control_py.controllers import ArmEndPos
 
-        cfg = str(config_path) if config_path else None
+        if config_path:
+            p = Path(config_path)
+            if not p.is_absolute():
+                p = _CAMERAWS_ROOT / p
+            cfg = str(p)
+        else:
+            cfg = None
         self._arm = RobotArm(cfg_path=cfg)
 
         if urdf_path:
